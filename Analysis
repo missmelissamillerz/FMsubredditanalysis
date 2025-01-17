@@ -1,4 +1,17 @@
 #retrieve data from reddit duloxetine and Cymbalta in titles 
+#Search for posts
+subreddit = reddit.subreddit('Fibromyalgia')  # Replace with any subreddit
+posts = []
+for submission in reddit.subreddit('Fibromyalgia').search('Duloxetine', limit=100):
+    posts2.append({'Title': submission.title, 'Score': submission.score})
+df = pandas.DataFrame(posts2)
+
+#Write the DataFrame to a CSV file
+df.to_csv('Duloxetine_posts.csv', index=False, encoding='utf-8')
+
+print("Data has been written to Duloxetine_posts.csv")
+
+
 #filter out top 10
 #get top 10 comments 
 #create a data frame with all comments
