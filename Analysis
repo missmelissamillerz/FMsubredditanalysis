@@ -1,0 +1,5 @@
+#retrieve data from reddit duloxetine and Cymbalta in titles 
+#filter out top 10
+#get top 10 comments 
+#create a data frame with all comments
+#text analysis steps (re,ove error etc)
