@@ -1,18 +1,266 @@
-#retrieve data from reddit duloxetine and Cymbalta in titles 
+import string
+
+import pandas as pd
+
+print("Hello, PyCharm is working!")
+
+
+import pip
+import praw
+import pandas
+
+
+
+# Create a Reddit instance
+reddit = praw.Reddit(
+    client_id='---',
+    client_secret='---',
+    user_agent='---',
+    username='---',
+    password='----',
+)
+
+# Test the authentication
+print(reddit.user.me())  # Prints your Reddit username to verify successful login
+
+# A. Fetch subreddit Posts
+#subreddit = reddit.subreddit('Fibromyalgia')  # Replace with any subreddit
+#posts = []
+#for submission in subreddit.hot(limit=1000):  # Fetch hot posts
+ #   posts.append({'Title': submission.title, 'Score': submission.score})   # score title and score
+
+#CSV file
+#df = pandas.DataFrame(posts)
+
+# Step 4: Write the DataFrame to a CSV file
+#df.to_csv('FM_posts.csv', index=False, encoding='utf-8')
+
+#print("Data has been written to FM_posts.csv")
+
 #Search for posts
 subreddit = reddit.subreddit('Fibromyalgia')  # Replace with any subreddit
-posts = []
-for submission in reddit.subreddit('Fibromyalgia').search('Duloxetine', limit=100):
-    posts2.append({'Title': submission.title, 'Score': submission.score})
-df = pandas.DataFrame(posts2)
+dulposts = []
 
-#Write the DataFrame to a CSV file
-df.to_csv('Duloxetine_posts.csv', index=False, encoding='utf-8')
+for submission in reddit.subreddit('Fibromyalgia').search('Duloxetine', limit=1000):
+    dulposts.append({'Title': submission.title, 'Score': submission.score})
+df1 = pandas.DataFrame(dulposts)
+
+# Step 4: Write the DataFrame to a CSV file
+df1.to_csv('Duloxetine_posts.csv', index=False, encoding='utf-8')
 
 print("Data has been written to Duloxetine_posts.csv")
 
+#Search for posts using Cymbalta
+subreddit = reddit.subreddit('Fibromyalgia')  # Replace with any subreddit
+cymposts = []
+for submission in reddit.subreddit('Fibromyalgia').search('Cymbalta', limit=1000):
+    cymposts.append({'Title': submission.title, 'Score': submission.score})
+df2 = pandas.DataFrame(cymposts)
 
-#filter out top 10
-#get top 10 comments 
-#create a data frame with all comments
-#text analysis steps (re,ove error etc)
+#Write the DataFrame to a CSV file
+df2.to_csv('Cymbalta_posts.csv', index=False, encoding='utf-8')
+
+print("Data has been written to Cymbalta_posts.csv")
+
+med_posts = [df1, df2]
+med_posts = pd.concat([df1, df2], axis=0, ignore_index=False)
+med_posts.to_csv('Med_posts.csv', index=False, encoding='utf-8')
+
+med_posts.info
+print(med_posts.info)
+
+med_posts.shape
+print(med_posts.shape)
+
+# Now the data cleaning begins.
+
+# Make titles lowercase
+med_posts['Title'] = med_posts['Title'].str.lower()
+print(med_posts)
+
+# Remove punctuation by
+#   Creating a function to do this
+def no_punc (text):
+    for char in text:
+        if char in string.punctuation:
+            text = text.replace(char, '')
+            text = text.strip()
+    return text
+
+#   Then apply this function to the dataset. I created a new column so
+#   I could retain the original content as well.
+med_posts['title'] = med_posts['Title'].apply(lambda x: no_punc(x))
+print(med_posts)
+
+#remove duplicates
+duplicated_text = med_posts['title'].duplicated()
+print(duplicated_text)
+
+med_posts = med_posts.drop_duplicates(subset=['title'], keep='first')
+print(med_posts)
+
+headings = med_posts.head(10)
+print(headings)
+
+# Import libraries
+import nltk
+from nltk.corpus import stopwords
+nltk.download("stopwords")
+import gensim
+from gensim.utils import simple_preprocess
+
+# Retrieve stopwords list
+stopwords_list = stopwords.words("english")
+
+# Add words to stopwords list
+stopwords_list.extend(['duloxetine', 'cymbalta', 'experience', 'fibromyalgia',
+                      'anyone', 'experiences', 'question', 'lyrica', 'amitriptyline', 'doctor', 'please', 'pregablin', 'fibro'])
+
+# Creating a function to remove stopwords
+def stopword_clean(text):
+    word_list = []
+    for word in gensim.utils.simple_preprocess(text):
+        if word not in stopwords_list:
+            word_list.append(word)
+    final_list = ' ' .join(word_list)
+    return final_list
+
+# Apply function to the column but create a new column, do not overwrite.
+
+med_posts['stopwords_removed'] = med_posts['title'].apply(lambda x: stopword_clean(x))
+print(med_posts)
+
+
+# Combine all titles to create one string
+title_list = []
+for title in med_posts['stopwords_removed']:
+    title_list.append(title)
+print(title_list)
+
+combined_string = ' ' .join(title_list)
+print(combined_string)
+
+print("There are {} observations and {} columns in this dataset. \n".format(med_posts.shape[0],med_posts.shape[1]))
+
+print("There are {} titles in this dataset such as {}... \n".format(len(med_posts.title.unique()),
+                                                                           ", ".join(med_posts.title.unique()[0:5])))
+
+print("From those {} titles, we edited and removed stopwords. Sentences without stop words look like this: {}... \n".format(len(med_posts.stopwords_removed.unique()),
+                                                                                      ", ".join(med_posts.stopwords_removed.unique()[0:5])))
+
+
+#Create wordcloud
+import matplotlib.pyplot as plt
+
+from wordcloud import WordCloud
+plt.figure(figsize=(15,15))
+wordcloud = WordCloud().generate(combined_string)
+plt.imshow(wordcloud, interpolation= 'bilinear')
+plt.axis("off")
+plt.show()
+
+# Based on the wordcloud, I will look at withdrawals
+# Filtering posts with "withdrawal" to determine what people are asking
+withdrawal_posts = med_posts[med_posts['stopwords_removed'].str.count('withdrawal')>0]
+print(withdrawal_posts)
+
+# Add words to stopwords list
+stopwords_list.extend(['withdrawal', 'withdrawals'])
+
+# Apply function to the column but create a new column, do not overwrite.
+
+withdrawal_posts['no withdrawals'] = withdrawal_posts['Title'].apply(lambda x: stopword_clean(x))
+print(withdrawal_posts)
+
+# Create wordcloud without withdrawals
+withdrawal_list = []
+for title in withdrawal_posts['no withdrawals']:
+    withdrawal_list.append(title)
+print(withdrawal_list)
+
+# Create a string
+withdrawal_string = ' ' .join(withdrawal_list)
+print(withdrawal_string)
+
+from wordcloud import WordCloud
+plt.figure(figsize=(15,15))
+wordcloud = WordCloud().generate(withdrawal_string)
+plt.imshow(wordcloud, interpolation= 'bilinear')
+plt.axis("off")
+plt.show()
+
+column_names = withdrawal_posts.columns
+print(column_names)
+
+#Write the DataFrame to a CSV file
+withdrawal_posts.to_csv('Withdrawal_posts.csv', index=False, encoding='utf-8')
+
+print("Data has been written to Withdrawal_posts.csv")
+
+# To order the posts by upvote score
+withdrawal_posts = withdrawal_posts.sort_values("Score")
+print(withdrawal_posts)
+
+#Fetch comments from Chosen post "Cymbalta Withdrawal Timeline -- Tell me this will end, I'm losing my mind"
+# Post ID = 1abr1ol here : https://www.reddit.com/r/Fibromyalgia/comments/1abr1ol/cymbalta_withdrawal_timeline_tell_me_this_will/
+submission = reddit.submission(id='1abr1ol')  # Replace with a specific post ID
+comment_list = []
+submission.comments.replace_more(limit=0)  # Replace "more comments" with actual comments
+for comment in submission.comments:
+    post = {}
+    post['author'] = comment.author
+    post['comment'] = comment.body
+    comment_list.append(post)
+
+print(comment_list)
+print (post)
+comment_df = pd.DataFrame(comment_list)
+print(comment_df)
+comment_df.to_csv('Withdrawal Timeline_comments.csv',  index=False, encoding='utf-8')
+print("Data has been written to Withdrawal Timeline_comments.csv")
+
+#Clean the data
+comment_df['comment'] = comment_df['comment'].str.lower()  #lowercase
+comment_df['comment'] = comment_df['comment'].apply(lambda x: no_punc(x))   #remove punctuations
+stopwords_list_2 = stopwords.words("english") #make different stopword bank for comments
+stopwords_list_2.extend(['duloxetine', 'cymbalta', 'fibromyalgia', 'lyrica', 'amitriptyline', 'doctor', 'please', 'pregablin', 'fibro', 'withdrawal', "withdrawals",
+                         'day', 'week', 'mg', 'started', 'stopped', 'im', 'month', 'weeks', 'year', 'years', 'drug'])
+def stopword_clean_2(text):
+    word_list_2 = []
+    for word in gensim.utils.simple_preprocess(text):
+        if word not in stopwords_list_2:
+            word_list_2.append(word)
+    final_list_2 = ' ' .join(word_list_2)
+    return final_list_2
+
+# Apply function to the column but create a new column, do not overwrite.
+
+comment_df['clean'] = comment_df['comment'].apply(lambda x: stopword_clean_2(x))
+print(comment_df)
+
+
+# Combine all comments to create one string
+clean_comment_list = []
+for comment in comment_df['clean']:
+    clean_comment_list.append(comment)
+print(clean_comment_list)
+
+comments_string = ' ' .join(clean_comment_list)
+print(comments_string)
+
+print("There are {} observations and {} columns in this dataset. \n".format(comment_df.shape[0],comment_df.shape[1]))
+
+print("There are {} comments in this dataset such as {}... \n".format(len(comment_df.comment.unique()),
+                                                                           ", ".join(comment_df.comment.unique()[0:5])))
+
+print("From those {} comments, we edited and removed stopwords. Sentences without stop words look like this: {}... \n".format(len(comment_df.clean.unique()),
+                                                                                      ", ".join(comment_df.clean.unique()[0:5])))
+
+
+#Create wordcloud
+from wordcloud import WordCloud
+plt.figure(figsize=(15,15))
+wordcloud = WordCloud().generate(comments_string)
+plt.imshow(wordcloud, interpolation= 'bilinear')
+plt.axis("off")
+plt.show()
